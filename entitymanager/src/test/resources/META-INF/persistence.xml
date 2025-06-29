@@ -1,25 +1,6 @@
 <!--
-  ~ Hibernate, Relational Persistence for Idiomatic Java
-  ~
-  ~ Copyright (c) 2010, Red Hat Inc. or third-party contributors as
-  ~ indicated by the @author tags or express copyright attribution
-  ~ statements applied by the authors.  All third-party contributions are
-  ~ distributed under license by Red Hat Inc.
-  ~
-  ~ This copyrighted material is made available to anyone wishing to use, modify,
-  ~ copy, or redistribute it subject to the terms and conditions of the GNU
-  ~ Lesser General Public License, as published by the Free Software Foundation.
-  ~
-  ~ This program is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-  ~ or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
-  ~ for more details.
-  ~
-  ~ You should have received a copy of the GNU Lesser General Public License
-  ~ along with this distribution; if not, write to:
-  ~ Free Software Foundation, Inc.
-  ~ 51 Franklin Street, Fifth Floor
-  ~ Boston, MA  02110-1301  USA
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~ Copyright Red Hat Inc. and Hibernate Authors
   -->
 <persistence xmlns="http://java.sun.com/xml/ns/persistence"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -28,19 +9,37 @@
 
     <persistence-unit name="org.hibernate.tutorial.jpa">
         <description>
-            Persistence unit for the JPA tutorial of the Hibernate Getting Started Guide
+            Persistence unit for the Jakarta Persistence tutorial of the Hibernate Getting Started Guide
         </description>
 
         <class>org.hibernate.tutorial.em.Event</class>
 
-        <properties>
-            <property name="javax.persistence.jdbc.driver" value="org.h2.Driver" />
-            <property name="javax.persistence.jdbc.url" value="jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;MVCC=TRUE" />
-            <property name="javax.persistence.jdbc.user" value="sa" />
-            <property name="javax.persistence.jdbc.password" value="" />
+        <class>org.hibernate.tutorial.em.IdentityIdThing</class>
+        <class>org.hibernate.tutorial.em.SequenceIdThing</class>
+        <class>org.hibernate.tutorial.em.AutoIdThing</class>
 
+        <class>org.hibernate.tutorial.em.Room</class>
+        <class>org.hibernate.tutorial.em.House</class>
+
+        <class>org.hibernate.tutorial.em.Window</class>
+        <class>org.hibernate.tutorial.em.Person</class>
+        <class>org.hibernate.tutorial.em.Bulb</class>
+
+        <class>org.hibernate.tutorial.em.OrganizationalUnit</class>
+
+        <properties>
+            <!-- Database connection settings -->
+            <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1" />
+            <property name="jakarta.persistence.jdbc.user" value="sa" />
+            <property name="jakarta.persistence.jdbc.password" value="" />
+
+            <!-- Automatically export the schema. The values for this property are none, create, drop-and-create, drop. -->
+            <property name="jakarta.persistence.schema-generation.database.action" value="drop-and-create" />
+
+            <!-- Echo all executed SQL to console -->
             <property name="hibernate.show_sql" value="true" />
-            <property name="hibernate.hbm2ddl.auto" value="create" />
+            <property name="hibernate.format_sql" value="true" />
+            <property name="hibernate.highlight_sql" value="true" />
         </properties>
 
     </persistence-unit>
