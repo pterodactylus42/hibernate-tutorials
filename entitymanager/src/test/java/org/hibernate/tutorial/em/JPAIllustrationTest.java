@@ -245,7 +245,7 @@ public class JPAIllustrationTest extends TestCase {
 		inTransaction(entityManager -> {
 			out.println("------load unit");
 			OrganizationalUnit loadedUnit = entityManager.find(OrganizationalUnit.class, orgUnit.getId());
-			// hibernate generates query for houses
+			// no query needed for the houses, they were loaded on loading the unit
 			for(House h : loadedUnit.getHouses()) {
 				out.println(h.toString());
 			}
@@ -259,44 +259,69 @@ public class JPAIllustrationTest extends TestCase {
 	
 	}
 	
-	public void testNPlusOneBidirectional() {
+	public void testNPlusOneDueToEagerFetching() {
 		
-//		@Entity
-//		public class User {
-//		    @Id
-//		    private Long id;
-//		    private String username;
-//		    private String email;
-//
-//		    @OneToMany(fetch = FetchType.LAZY, mappedBy = "author")
-//		    private List<Post> posts;
-//
-//		    // constructors, getters, setters, etc.
-//		}
+		out.println("---Create User and Posts");
 
-//		@Entity
-//		public class Post {
-//		    @Id
-//		    private Long id;
-//		    private String content;
-//
-//		    @ManyToOne(fetch = FetchType.LAZY)
-//		    @JoinColumn(name = "author_id")
-//		    private User author;
-//
-//		    // constructors, getters, setters, etc.
-//		}
+		inTransaction(entityManager -> {
+			User user = new User();
+			user.setUsername("testuser");
+			user.setEmail("user@example.com");
+			entityManager.persist(user);
+			for(int i = 0; i < 10; i++) {
+				Post post = new Post();
+				post.setAuthor(user);
+				post.setContent("Written at system time " + System.currentTimeMillis());
+				user.getPosts().add(post);
+				entityManager.persist(post);
+			}
+		});
 
-//		@Transactional(readOnly = true)
-//		public void fetchUsersAndPosts() {
-//		    List<User> users = userRepository.findAll();
-//		    for (User user : users) {
-//		        System.out.println("User: " + user.getUsername());
-//		        for (Post post : user.getPosts()) {
-//		            System.out.println("Post: " + post.getContent());
-//		        }
-//		    }
-//		}
+		out.println("---Query User, display Posts");
+		
+		inTransaction(entityManager -> {
+			List<User> userList = entityManager.createQuery("from User u", User.class).getResultList();
+		    for (User user : userList) {
+		        out.println("User: " + user.getUsername() + " " + user.getPosts().size() + " posts");
+		        for (Post post : user.getPosts()) {
+		            System.out.println("Post: " + post.getContent());
+		        }
+		    }
+		});
+
+		
+		out.println("---Query Posts, display User");
+		
+		inTransaction(entityManager -> {
+			List<Post> postList = entityManager.createQuery("from Post p", Post.class).getResultList();
+		    for (Post post : postList) {
+		        out.println("Post: " + post.getContent() + " user: " + post.getAuthor().getUsername());
+		    }
+		});
+		
+		out.println("---Create PostComments");
+
+		inTransaction(entityManager -> {
+				List<Post> postList = entityManager.createQuery("from Post p", Post.class).getResultList();
+			    for (Post post : postList) {
+			    	for(int i = 0; i < 10; i++) {
+			    		PostComment comment = new PostComment();
+			    		comment.setReview(post.getContent() + " - comment #" + i);
+			    		comment.setPost(post);
+			    		entityManager.persist(comment);
+			    	}
+			    }
+		});
+
+		out.println("---Query PostComments");
+		// the query for PostComment generates 10 additional queries for Post
+		inTransaction(entityManager -> {
+			List<PostComment> postList = entityManager.createQuery("from PostComment pc", PostComment.class).getResultList();
+		    for (PostComment pc : postList) {
+		        out.println("Original post: " + pc.getPost().getContent() + " review: " + pc.getReview());
+		    }
+		});
+
 
 	}
 

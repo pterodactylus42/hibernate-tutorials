@@ -27,6 +27,10 @@
 
         <class>org.hibernate.tutorial.em.OrganizationalUnit</class>
 
+        <class>org.hibernate.tutorial.em.User</class>
+        <class>org.hibernate.tutorial.em.Post</class>
+        <class>org.hibernate.tutorial.em.PostComment</class>
+
         <properties>
             <!-- Database connection settings -->
             <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1" />
