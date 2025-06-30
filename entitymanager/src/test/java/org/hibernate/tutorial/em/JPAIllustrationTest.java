@@ -6,6 +6,7 @@ package org.hibernate.tutorial.em;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -213,7 +214,7 @@ public class JPAIllustrationTest extends TestCase {
 	}
 
 	
-	public void testNPlusOneUnidirectional() {
+	public void testQueriesUnidirectional() {
 		
 		out.println("---Create orgUnit");
 		OrganizationalUnit orgUnit = new OrganizationalUnit();
@@ -245,7 +246,8 @@ public class JPAIllustrationTest extends TestCase {
 		inTransaction(entityManager -> {
 			out.println("------load unit");
 			OrganizationalUnit loadedUnit = entityManager.find(OrganizationalUnit.class, orgUnit.getId());
-			// no query needed for the houses, they were loaded on loading the unit
+			out.println("------use houses");
+			// a query is generated for the lazy houses, although the unit is already loaded
 			for(House h : loadedUnit.getHouses()) {
 				out.println(h.toString());
 			}
@@ -264,26 +266,22 @@ public class JPAIllustrationTest extends TestCase {
 		out.println("---Create User and Posts");
 
 		inTransaction(entityManager -> {
-			User user = new User();
-			user.setUsername("testuser");
-			user.setEmail("user@example.com");
-			entityManager.persist(user);
-			for(int i = 0; i < 10; i++) {
-				Post post = new Post();
-				post.setAuthor(user);
-				post.setContent("Written at system time " + System.currentTimeMillis());
-				user.getPosts().add(post);
-				entityManager.persist(post);
-			}
+			createUserWithPosts(entityManager);
+			createUserWithPosts(entityManager);
+			createUserWithPosts(entityManager);
 		});
 
 		out.println("---Query User, display Posts");
-		
+		// hibernate first fetches the user and then the associated Posts with one additional query
 		inTransaction(entityManager -> {
+			out.println("---fetch user list");
 			List<User> userList = entityManager.createQuery("from User u", User.class).getResultList();
 		    for (User user : userList) {
+				out.println("---fetch user and posts");
+				// hibernate fetches the user and associated posts to resolve the following access
 		        out.println("User: " + user.getUsername() + " " + user.getPosts().size() + " posts");
 		        for (Post post : user.getPosts()) {
+		        	// no query needed
 		            System.out.println("Post: " + post.getContent());
 		        }
 		    }
@@ -293,8 +291,11 @@ public class JPAIllustrationTest extends TestCase {
 		out.println("---Query Posts, display User");
 		
 		inTransaction(entityManager -> {
+			out.println("---fetch post list");
 			List<Post> postList = entityManager.createQuery("from Post p", Post.class).getResultList();
 		    for (Post post : postList) {
+				out.println("---fetch user on demand");
+				// hibernate generates a query only if the user has not already been loaded for a previous post
 		        out.println("Post: " + post.getContent() + " user: " + post.getAuthor().getUsername());
 		    }
 		});
@@ -304,7 +305,7 @@ public class JPAIllustrationTest extends TestCase {
 		inTransaction(entityManager -> {
 				List<Post> postList = entityManager.createQuery("from Post p", Post.class).getResultList();
 			    for (Post post : postList) {
-			    	for(int i = 0; i < 10; i++) {
+			    	for(int i = 0; i < 2; i++) {
 			    		PostComment comment = new PostComment();
 			    		comment.setReview(post.getContent() + " - comment #" + i);
 			    		comment.setPost(post);
@@ -314,15 +315,33 @@ public class JPAIllustrationTest extends TestCase {
 		});
 
 		out.println("---Query PostComments");
-		// the query for PostComment generates 10 additional queries for Post
 		inTransaction(entityManager -> {
-			List<PostComment> postList = entityManager.createQuery("from PostComment pc", PostComment.class).getResultList();
-		    for (PostComment pc : postList) {
-		        out.println("Original post: " + pc.getPost().getContent() + " review: " + pc.getReview());
+			out.println("---fetch post comment list");
+			// the query for PostComment generates an additional query for each comment's Post
+			List<PostComment> postCommentList = entityManager.createQuery("from PostComment pc", PostComment.class).getResultList();
+		    for (PostComment pc : postCommentList) {
+		    	// no queries needed as every post was already fetched eager with the PostComment query
+				out.println("---no fetch post needed");
+		    	pc.getReview();
+		        pc.getPost().getContent();
 		    }
 		});
 
+	}
 
+	private void createUserWithPosts(EntityManager entityManager) {
+		User user = new User();
+		String name = "testuser" + new Random().nextInt();
+		user.setUsername(name);
+		user.setEmail(name + "@example.com");
+		entityManager.persist(user);
+		for(int i = 0; i < 2; i++) {
+			Post post = new Post();
+			post.setAuthor(user);
+			post.setContent("Written at system time " + System.currentTimeMillis());
+			user.getPosts().add(post);
+			entityManager.persist(post);
+		}
 	}
 
 
