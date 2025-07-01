@@ -11,11 +11,13 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.hibernate.LazyInitializationException;
+import org.hibernate.TransientObjectException;
 
+import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
-
+import jakarta.persistence.RollbackException;
 import junit.framework.TestCase;
 
 import static java.lang.System.out;
@@ -343,6 +345,75 @@ public class JPAIllustrationTest extends TestCase {
 			entityManager.persist(post);
 		}
 	}
+	
+	public void testSessionStates() {
+		
+		// Transient and Persistent
+		// in bidirectional OneToMany with lazy fetching, the persist event is cascaded implicitly
+		inTransaction(entityManager -> {
+			User user = new User();
+			Post post = new Post();
+			PostComment pc = new PostComment();
+			pc.setPost(post);
+			user.getPosts().add(post);
+			entityManager.persist(user);
+		});
+			
+		try {			
+			inTransaction(entityManager -> {
+				House house = new House();
+				house.addBulb(new Bulb());
+				entityManager.persist(house);
+			});
+			fail();
+		} catch (RollbackException e) {
+			// without lazy fetching the dependent object needs to be persisted separately
+			assertTrue(e.getCause() instanceof IllegalStateException);
+			assertTrue(e.getCause().getCause() instanceof TransientObjectException);
+		}
 
+		// Persistent and Detached
+		List<IdentityIdThing> things = new ArrayList<>();
+		inTransaction(entityManager -> {
+			IdentityIdThing thing = new IdentityIdThing();
+			entityManager.persist(thing);
+			things.add(thing);
+		});
+		// the created thing is now persistent in the database
+		try {			
+			inTransaction(entityManager -> {
+				entityManager.persist(things.get(0));
+			});
+			fail();
+		} catch (EntityExistsException e) {
+			// the thing is already persistent
+		}
+		
+		// Removed
+		List<User> users = new ArrayList<>();
+		
+		inTransaction(entityManager -> {
+			User user = new User();
+			user.setEmail("email");
+			user.setUsername("username");
+			entityManager.persist(user);
+			users.add(user);
+		});
+		
+		inTransaction(entityManager -> {
+			List<User> userList = entityManager.createQuery("from User u", User.class).getResultList();
+		    for (User user : userList) {
+		    	entityManager.remove(user);
+		    }
+		});
+		
+		User removedUser = users.get(0);
+		out.println("User " + removedUser.getUsername() + " email " + removedUser.getEmail());
+		inTransaction(entityManager -> {
+			User user = entityManager.find(User.class, removedUser.getId());
+			assertNull(user);
+		});
+				
+	}
 
 }
