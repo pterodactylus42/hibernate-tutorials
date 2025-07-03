@@ -5,6 +5,8 @@
 package org.hibernate.tutorial.annotations;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -16,6 +18,7 @@ import junit.framework.TestCase;
 
 import static java.lang.System.out;
 import static java.time.LocalDateTime.now;
+import static org.junit.Assert.assertThrows;
 
 /**
  * Illustrates the use of Hibernate native APIs, including the use
@@ -67,4 +70,74 @@ public class HibernateIllustrationTest extends TestCase {
 					.forEach(event -> out.println("Event (" + event.getDate() + ") : " + event.getTitle()));
 		});
 	}
+	
+	public void testSessionStates() {
+		Session session = sessionFactory.openSession();
+		// create a transient Object
+		Event event = new Event();
+		assertFalse(session.contains(event));
+		
+		// make the object persistent
+		session.persist(event);
+		assertTrue(session.contains(event));
+		
+		// closing the session makes the object detached
+		session.close();
+		assertFalse(session.isOpen());		
+		assertThrows(IllegalStateException.class, () -> session.contains(event));		
+	}
+
+	
+	public void testSessionStatesMerge() {
+		
+		sessionFactory.inTransaction(session -> {
+			session.persist(new Event("A very first event!", now()));
+		});
+		// the first event is persistent
+		
+		sessionFactory.inTransaction(session -> {
+			session.createSelectionQuery("from Event", Event.class).getResultList()
+					.forEach(event -> out.println("Event (" + event.getDate() + ") : " + event.getTitle()));
+		});
+		
+		List<Long> dbids = new ArrayList<>();
+		sessionFactory.inTransaction(session -> {
+			session.createSelectionQuery("from Event", Event.class).getResultList()
+					.forEach(event -> dbids.add(event.getId()));
+		});
+
+		sessionFactory.inTransaction(session -> {
+			// here comes another transient event
+			Event anotherEvent = new Event();
+			anotherEvent.setDate(LocalDateTime.now());
+			anotherEvent.setTitle("A very first merged event!");
+			anotherEvent.setId(dbids.get(0));
+			session.merge(anotherEvent);
+		});
+		
+		sessionFactory.inTransaction(session -> {
+			session.createSelectionQuery("from Event", Event.class).getResultList()
+					.forEach(event -> out.println("Event (" + event.getDate() + ") : " + event.getTitle()));
+		});
+		
+		List<Event> events = new ArrayList<>();
+		sessionFactory.inTransaction(session -> {
+			session.createSelectionQuery("from Event", Event.class).getResultList()
+					.forEach(event -> events.add(event));
+		});
+
+		sessionFactory.inTransaction(session -> {
+			// the detached event will be merged
+			Event detachedEvent = events.get(0);
+			detachedEvent.setTitle("A formerly detached event...");
+			session.merge(detachedEvent);
+		});
+
+		sessionFactory.inTransaction(session -> {
+			session.createSelectionQuery("from Event", Event.class).getResultList()
+					.forEach(event -> out.println("Event (" + event.getDate() + ") : " + event.getTitle()));
+		});
+		
+	}
+
 }
