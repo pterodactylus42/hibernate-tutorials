@@ -14,6 +14,7 @@ import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 
+import jakarta.persistence.EntityExistsException;
 import junit.framework.TestCase;
 
 import static java.lang.System.out;
@@ -73,18 +74,31 @@ public class HibernateIllustrationTest extends TestCase {
 	
 	public void testSessionStates() {
 		Session session = sessionFactory.openSession();
-		// create a transient Object
+		// create a transient Object that has no corresponding row(s) in the database
 		Event event = new Event();
 		assertFalse(session.contains(event));
 		
-		// make the object persistent
+		// make the object persistent and associate it uniquely with the session
 		session.persist(event);
 		assertTrue(session.contains(event));
+		// after flushing the session, this object has a corresponding row in the database
 		
 		// closing the session makes the object detached
 		session.close();
 		assertFalse(session.isOpen());		
 		assertThrows(IllegalStateException.class, () -> session.contains(event));		
+		
+		Session anotherSession = sessionFactory.openSession();
+		Event anotherEvent = new Event();
+		assertFalse(anotherSession.contains(anotherEvent));
+		anotherSession.persist(anotherEvent);
+		assertTrue(anotherSession.contains(anotherEvent));
+		
+		anotherSession.evict(anotherEvent);
+		// this does the same as session.detach(anotherEvent);
+		assertThrows(EntityExistsException.class, () -> anotherSession.persist(anotherEvent));		
+		
+		anotherSession.close();
 	}
 
 	
