@@ -13,8 +13,13 @@ import org.hibernate.SessionFactory;
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+import org.hibernate.query.Query;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
+import org.hibernate.query.restriction.Restriction;
 
 import jakarta.persistence.EntityExistsException;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
 import junit.framework.TestCase;
 
 import static java.lang.System.out;
@@ -153,5 +158,43 @@ public class HibernateIllustrationTest extends TestCase {
 		});
 		
 	}
+	
+	public void testQueryTypes() {
+		
+		out.println("---Create something to query for");
+		sessionFactory.inTransaction(session -> {
+			session.persist(new Event("A event to query", now()));
+		});
 
+		out.println("---criteria query");
+		sessionFactory.inTransaction(session -> {
+			HibernateCriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
+			CriteriaQuery<Event> criteriaQueryEvent = criteriaBuilder.createQuery(Event.class);
+			Root<Event> root = criteriaQueryEvent.from(Event.class);
+			criteriaQueryEvent.select(root);
+			
+			Query<Event> query = session.createQuery(criteriaQueryEvent);
+			List<Event> list = query.list();
+			assertEquals(list.size(), 1);
+			assertTrue(list.get(0) instanceof Event);
+		});
+		
+		out.println("---hql query");
+		sessionFactory.inTransaction(session -> {
+			List<Event> resultList = session.createSelectionQuery("from Event", Event.class).getResultList();
+			assertEquals(resultList.size(), 1);
+			assertTrue(resultList.get(0) instanceof Event);
+		});
+		
+		out.println("---native sql query");
+		sessionFactory.inTransaction(session -> {
+			@SuppressWarnings({ "deprecation", "unchecked" })
+			List<Object> events = session.createNativeQuery("SeLeCT * FRoM eVeNTS").list();
+			assertEquals(events.size(), 1);
+			out.println(events);
+			assertFalse(events.get(0) instanceof Event);
+		});
+		
+	}
+	
 }
